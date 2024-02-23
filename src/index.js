@@ -6,19 +6,157 @@ const mongoose = require("mongoose");
 app.use(express.json());
 const cors = require("cors");
 app.use(cors());
+const { MongoClient } = require("mongodb");
 app.use("/src/pdf", express.static("src/pdf"));
+const AWS = require('aws-sdk');
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const os = require('os');
+
+const hostname = os.hostname();
+console.log('Hostname:', hostname);
+
+
+AWS.config.update({
+  accessKeyId: 'AKIAQYEXPTR7YTXLZ54C',
+  secretAccessKey: '2Fkaxm0BLe4lGf6XRu4mENu80gTPhnofUpH99Zhy',
+  region: 'us-east-1' // e.g., 'us-east-1'
+});
+
+const s3Client = new S3Client({});
 //mongodb connection----------------------------------------------
 const mongoUrl =
   "mongodb+srv://user:user123@main.o78v5ur.mongodb.net/";
 
-mongoose
-  .connect(mongoUrl, {
-    useNewUrlParser: true,
-  })
-  .then(() => {
-    console.log("Connected to database");
-  })
-  .catch((e) => console.log(e));
+  const client = new MongoClient(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true });
+
+  const s3 = new AWS.S3();
+  // console.log('s3', s3)
+
+  //apis----------------------------------------------------------------
+app.get("/", async (req, res) => {
+  // const collection = await client.db('crm').collection('product').find({ price: { $gt: 50 }}).toArray();;
+//   const db = await client.db('crm')
+//   const collection = await db.collection('inventory').updateMany(
+//     { 
+//       item: 'journal' }, // Filter criteria
+//     // { qty: { $gt: 49 } }, // Filter criteria
+//     // {},
+//     { $unset: { "size.h": ''} }  // Update operation
+//     // { $set: { modified: "error" } } // Update operation
+// );
+// // const collection = await db.collection('inventory').find({ }).toArray();
+//   console.log('collection', collection)
+
+// const params = {
+//   Bucket: 's3-object-photo',
+//   Key: 'pdf/test.pdf'
+// };
+
+// s3.listObjectsV2(params, (err, data) => {
+//   if (err) {
+//       console.error('Error listing objects:', err);
+//   } else {
+//       console.log('Objects in bucket:', data);
+//       data.Contents.forEach(obj => {
+        // const url = s3.getSignedUrl('getObject', {
+        //     Bucket: 's3-object-photo',
+        //     Key: obj.Key,
+        //     Expires: 3600 // URL expiration time in seconds (e.g., 1 hour)
+        // });
+        // console.log(`File: ${obj.Key}, URL: ${url}`);
+//     });
+//   }
+// });
+
+// const params = {
+//   Bucket: 's3-object-photo'
+// };
+
+// s3.getObject(params, (err, data) => {
+// // s3.listObjects(params, (err, data) => {
+//   if (err) {
+//       console.error('Error:', err);
+//   } else {
+//       console.log('Objects in bucket:', data);
+//       console.log('File data:', data.Body.toString());
+//   }
+// });
+
+// const obj = {
+//   Key: 'pdf/test.pdf',
+// }
+// const url = s3.getSignedUrl('getObject', {
+//   Bucket: 's3-object-photo',
+//   Key: obj.Key,
+//   Expires: 3600 // URL expiration time in seconds (e.g., 1 hour)
+// });
+// console.log(`File: ${obj.Key}, URL: ${url}`);
+
+const params = {
+  Bucket: 's3-object-photo',
+  Prefix: 'pdf/A1', // specify the folder name as the prefix
+  // Delimiter: '' // specify the delimiter to exclude objects in subfolders
+};
+
+let dataDummy = [];
+s3.listObjectsV2(params,async (err, data) => {
+  if (err) {
+      console.error('Error listing objects:', err);
+  } else {
+      console.log('Objects in folder:', data.Contents);
+     await data.Contents.map(obj => {
+          console.log(obj.Key.split('pdf/A1/')[1].slice(0, -4));
+          console.log(obj.Key);
+          console.log('111111')
+          if(obj.Key.split('pdf/A1/')[1].slice(0, -4).split('/').length === 2){
+            console.log('2222222')
+            dataDummy.push({
+              name: obj.Key,
+              time: obj.LastModified,
+              filename: obj.Key.split('pdf/A1/')[1].slice(0, -4),
+              type: 'folder',
+            })
+          } else if (obj.Key.split('pdf/A1/')[1].slice(0, -4).split('/').length === 1){
+            console.log('33333')
+            dataDummy.push({
+              name: obj.Key,
+              time: obj.LastModified,
+              filename: obj.Key.split('pdf/A1/')[1],
+              type: 'pdf',
+            })
+          } else {}
+      });
+  }
+  res.send(dataDummy);
+});
+
+
+
+ 
+});
+
+
+// const client = mongoose
+//   .connect(mongoUrl, {
+//     useNewUrlParser: true,
+//   })
+//   .then(() => {
+//     console.log("Connected to database");
+//   })
+//   .catch((e) => console.log(e));
+
+// Middleware to connect to MongoDB before processing each request
+app.use(async (req, res, next) => {
+  try {
+      const client = new MongoClient(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true });
+      await client.connect();
+      req.mongoClient = client;
+      next();
+  } catch (error) {
+      console.error('Error connecting to MongoDB:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
 //multer------------------------------------------------------------
 const multer = require("multer");
 
@@ -157,10 +295,7 @@ app.get('/get-pdf', (req, res) => {
 });
 
 
-//apis----------------------------------------------------------------
-app.get("/", async (req, res) => {
-  res.send("Success!!!!!!");
-});
+
 
 function getAllPDFFiles(directory) {
     let pdfFiles = [];

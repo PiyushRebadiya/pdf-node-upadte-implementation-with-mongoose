@@ -21,6 +21,8 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.515.0",
+    "aws-sdk": "^2.1564.0",
     "babel-cli": "^6.26.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
